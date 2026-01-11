@@ -2,131 +2,197 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<title>🎮 Panel Admin Total</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Key Generator</title>
 
-<!-- 🔥 Firebase v9 COMPAT (OBLIGATORIO) -->
+<!-- 🔥 Firebase v9 COMPAT -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <style>
 body{
   margin:0;
-  background:#06010d;
+  background:#05010a;
   font-family:Arial,Helvetica,sans-serif;
   color:#fff;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  min-height:100vh;
+}
+h2{color:#b57cff;text-align:center}
+.container{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:20px;
+  padding:20px;
 }
 .card{
-  width:90%;
-  max-width:420px;
   background:#0c0718;
-  border-radius:22px;
-  padding:24px;
-  box-shadow:0 0 40px #7f4cff;
+  border-radius:20px;
+  padding:20px;
+  box-shadow:0 0 35px #7f4cff;
 }
-h2{
-  text-align:center;
-  color:#b57cff;
-}
-label{display:block;margin-top:14px;}
-select,textarea{
+input,select,textarea{
   width:100%;
-  margin-top:6px;
-  padding:14px;
-  border-radius:14px;
+  padding:12px;
+  margin-top:8px;
+  border-radius:12px;
   border:none;
-  background:#120c22;
+  background:#140c28;
   color:#fff;
 }
-textarea{min-height:120px;}
+textarea{min-height:120px}
 button{
   width:100%;
-  margin-top:18px;
-  padding:14px;
+  margin-top:14px;
+  padding:12px;
   border:none;
-  border-radius:18px;
+  border-radius:14px;
   background:linear-gradient(135deg,#8a5cff,#c58bff);
   font-weight:bold;
+  cursor:pointer;
 }
-.msg{text-align:center;margin-top:10px;}
-.error{color:#ff5b5b;}
-.ok{color:#5bff9a;}
+.user{
+  background:#140c28;
+  padding:12px;
+  border-radius:14px;
+  margin-top:10px;
+}
+.actions{
+  display:flex;
+  gap:8px;
+  margin-top:8px;
+}
+.msg{text-align:center;margin-top:10px}
+.ok{color:#5bff9a}
+.error{color:#ff5b5b}
+.login{
+  max-width:360px;
+  margin:80px auto;
+}
+.hidden{display:none}
 </style>
 </head>
 
 <body>
 
-<div class="card">
-  <h2>🔑 Key Generator</h2>
+<!-- 🔐 LOGIN -->
+<div id="loginBox" class="login">
+  <h2>🔐 LOGIN ADMIN</h2>
+  <input id="email" placeholder="Correo">
+  <input id="pass" type="password" placeholder="Contraseña">
+  <button onclick="login()">ENTRAR</button>
+</div>
 
-  <label>Producto</label>
-  <select id="producto">
-    <option>Cargando...</option>
-  </select>
+<!-- 🎮 PANEL -->
+<div id="panelBox" class="hidden">
+  <div class="container">
 
-  <label>Keys (1 por línea)</label>
-  <textarea id="keys"></textarea>
+    <!-- 💰 SALDOS -->
+    <div class="card">
+      <h2>💰 SALDOS</h2>
+      <div id="estado">Cargando usuarios...</div>
+      <div id="usuarios"></div>
+    </div>
 
-  <button onclick="guardar()">⚡ AGREGAR KEYS</button>
-  <div id="msg" class="msg"></div>
+    <!-- 🔑 KEYS -->
+    <div class="card">
+      <h2>🔑 KEYS</h2>
+
+      <label>Producto</label>
+      <select id="producto"><option>Cargando...</option></select>
+
+      <label>Keys (1 por línea)</label>
+      <textarea id="keys"></textarea>
+
+      <button onclick="guardarKeys()">AGREGAR KEYS</button>
+      <div id="msg" class="msg"></div>
+    </div>
+
+  </div>
 </div>
 
 <script>
-/* ✅ TU FIREBASE REAL */
-const firebaseConfig = {
+/* 🔥 FIREBASE */
+firebase.initializeApp({
   apiKey: "AIzaSyAKrBTAkJGhB9s3E3MExqzj8mtXgKYsWRc",
   authDomain: "davidstore-51f7f.firebaseapp.com",
   projectId: "davidstore-51f7f"
-};
-
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-
-/* 🔄 CARGAR PRODUCTOS */
-const sel = document.getElementById("producto");
-sel.innerHTML = "<option>Cargando...</option>";
-
-db.collection("claves").get().then(snap=>{
-  sel.innerHTML = "<option value=''>Selecciona producto</option>";
-  if(snap.empty){
-    sel.innerHTML += "<option disabled>No hay productos</option>";
-    return;
-  }
-  snap.forEach(doc=>{
-    const o=document.createElement("option");
-    o.value=doc.id;
-    o.textContent=doc.id;
-    sel.appendChild(o);
-  });
-}).catch(e=>{
-  console.error(e);
-  sel.innerHTML="<option>Error Firebase</option>";
 });
 
-/* ➕ GUARDAR KEYS */
-function guardar(){
-  const prod=sel.value;
-  const texto=document.getElementById("keys").value.trim();
-  const msg=document.getElementById("msg");
+const auth = firebase.auth();
+const db   = firebase.firestore();
 
-  if(!prod){msg.textContent="❌ Selecciona producto";msg.className="msg error";return;}
-  if(!texto){msg.textContent="❌ Pega keys";msg.className="msg error";return;}
+/* 🔐 AUTH */
+auth.onAuthStateChanged(u=>{
+  if(u){
+    loginBox.classList.add("hidden");
+    panelBox.classList.remove("hidden");
+    cargarUsuarios();
+    cargarProductos();
+  }else{
+    loginBox.classList.remove("hidden");
+    panelBox.classList.add("hidden");
+  }
+});
 
-  const arr=texto.split("\n").map(x=>x.trim()).filter(x=>x);
+function login(){
+  auth.signInWithEmailAndPassword(email.value,pass.value)
+    .catch(e=>alert(e.message));
+}
 
-  db.collection("claves").doc(prod).update({
+/* 💰 SALDOS */
+function cargarUsuarios(){
+  usuarios.innerHTML="";
+  db.collection("login").get().then(snap=>{
+    estado.textContent="👥 Usuarios: "+snap.size;
+    snap.forEach(d=>{
+      const u=d.data();
+      usuarios.innerHTML+=`
+        <div class="user">
+          📧 ${u.email}<br>
+          💰 Saldo: <b>${u.saldo||0}</b>
+          <div class="actions">
+            <input id="m_${d.id}" type="number" placeholder="Monto">
+            <button onclick="cambiarSaldo('${d.id}',1)">➕</button>
+            <button onclick="cambiarSaldo('${d.id}',-1)">➖</button>
+          </div>
+        </div>
+      `;
+    });
+  });
+}
+
+function cambiarSaldo(id,s){
+  const v=Number(document.getElementById("m_"+id).value);
+  if(!v) return;
+  db.collection("login").doc(id).update({
+    saldo: firebase.firestore.FieldValue.increment(v*s)
+  }).then(cargarUsuarios);
+}
+
+/* 🔑 KEYS */
+function cargarProductos(){
+  producto.innerHTML="<option>Cargando...</option>";
+  db.collection("claves").get().then(snap=>{
+    producto.innerHTML="<option value=''>Selecciona</option>";
+    snap.forEach(d=>{
+      producto.innerHTML+=`<option value="${d.id}">${d.id}</option>`;
+    });
+  });
+}
+
+function guardarKeys(){
+  const p=producto.value;
+  const t=keys.value.trim();
+  if(!p||!t) return;
+  const arr=t.split("\n").map(x=>x.trim()).filter(x=>x);
+  db.collection("claves").doc(p).update({
     lista: firebase.firestore.FieldValue.arrayUnion(...arr)
   }).then(()=>{
     msg.textContent="✅ Keys agregadas";
     msg.className="msg ok";
-    document.getElementById("keys").value="";
-  }).catch(e=>{
-    console.error(e);
-    msg.textContent="❌ Error al guardar";
+    keys.value="";
+  }).catch(()=>{
+    msg.textContent="❌ Error";
     msg.className="msg error";
   });
 }
