@@ -12,7 +12,7 @@
 <style>
 body{
   background:radial-gradient(circle at top,#1a1033,#05010a);
-  font-family:Arial;
+  font-family:Arial, sans-serif;
   color:#fff;
 }
 .panel{
@@ -23,9 +23,17 @@ body{
   border-radius:26px;
   box-shadow:0 0 40px #a855f7;
 }
-h2{text-align:center;color:#c084fc}
-label{display:block;margin-top:16px;opacity:.85}
-select,textarea{
+h2{
+  text-align:center;
+  color:#c084fc;
+  margin-bottom:20px;
+}
+label{
+  display:block;
+  margin-top:16px;
+  opacity:.85;
+}
+select, textarea{
   width:100%;
   margin-top:8px;
   padding:14px;
@@ -33,8 +41,13 @@ select,textarea{
   border:none;
   background:#0f172a;
   color:#fff;
+  font-size:15px;
 }
-textarea{min-height:140px;resize:none}
+textarea{
+  min-height:150px;
+  resize:none;
+  font-family:monospace;
+}
 button{
   width:100%;
   margin-top:22px;
@@ -45,8 +58,13 @@ button{
   font-weight:900;
   background:linear-gradient(135deg,#c084fc,#7c3aed);
   color:#000;
+  cursor:pointer;
 }
-#msg{text-align:center;margin-top:12px;font-weight:700}
+#msg{
+  text-align:center;
+  margin-top:14px;
+  font-weight:700;
+}
 .hidden{display:none}
 </style>
 </head>
@@ -56,21 +74,22 @@ button{
 <div class="panel">
   <h2>🔑 Key Generator</h2>
 
-  <label>Producto</label>
-  <select id="producto"></select>
-
-  <label>Duración</label>
-  <select id="duracion"></select>
+  <label>Producto / Duración</label>
+  <select id="producto">
+    <option value="">Cargando...</option>
+  </select>
 
   <label>Agregar Keys (1 por línea)</label>
-  <textarea id="keys"></textarea>
+  <textarea id="keys" placeholder="KEY-12345
+KEY-67890
+KEY-ABCDE"></textarea>
 
-  <button onclick="guardarKeys()">⚡ AGREGAR KEYS</button>
+  <button onclick="agregarKeys()">⚡ AGREGAR KEYS</button>
   <div id="msg" class="hidden"></div>
 </div>
 
 <script>
-// 🔥 TU FIREBASE REAL
+// 🔥 CONFIGURA TU FIREBASE (NO CAMBIES NADA MÁS)
 firebase.initializeApp({
   apiKey: "TU_API_KEY",
   authDomain: "TU_AUTH_DOMAIN",
@@ -78,83 +97,78 @@ firebase.initializeApp({
 });
 const db = firebase.firestore();
 
-// 🔄 CARGAR PRODUCTOS
-let productosCache = {};
-
-db.collection("productos").onSnapshot(snap=>{
-  const selProducto = document.getElementById("producto");
-  selProducto.innerHTML = "";
-  productosCache = {};
+// 🔄 CARGAR TODOS LOS PRODUCTOS DESDE "claves"
+db.collection("claves").onSnapshot(snap=>{
+  const sel = document.getElementById("producto");
+  sel.innerHTML = "<option value=''>Selecciona producto</option>";
 
   snap.forEach(doc=>{
-    productosCache[doc.id] = doc.data();
     const opt = document.createElement("option");
     opt.value = doc.id;
-    opt.textContent = doc.data().nombre;
-    selProducto.appendChild(opt);
+    opt.textContent = doc.id; // 👈 mostramos el ID tal cual
+    sel.appendChild(opt);
   });
-
-  cargarDuraciones();
 });
 
-// 🔄 CARGAR DURACIONES SEGÚN PRODUCTO
-function cargarDuraciones(){
-  const id = document.getElementById("producto").value;
-  const selDur = document.getElementById("duracion");
-  selDur.innerHTML = "";
-
-  Object.entries(productosCache).forEach(([docId,data])=>{
-    if(data.nombre === productosCache[id].nombre){
-      const opt = document.createElement("option");
-      opt.value = docId;
-      opt.textContent = data.dias + " días";
-      selDur.appendChild(opt);
-    }
-  });
-}
-
-document.getElementById("producto")
-  .addEventListener("change", cargarDuraciones);
-
-// 💾 GUARDAR KEYS
-async function guardarKeys(){
+// 💾 AGREGAR KEYS
+async function agregarKeys(){
   const msg = document.getElementById("msg");
   msg.classList.add("hidden");
 
-  const idProducto = document.getElementById("duracion").value;
+  const producto = document.getElementById("producto").value;
   const texto = document.getElementById("keys").value.trim();
 
-  if(!texto){
-    msg.textContent = "❌ No hay keys";
-    msg.style.color="red";
-    msg.classList.remove("hidden");
+  if(!producto){
+    mostrarError("Selecciona un producto");
     return;
   }
 
-  const nuevas = texto.split("\n").map(k=>k.trim()).filter(Boolean);
-  const ref = db.collection("claves").doc(idProducto);
+  if(!texto){
+    mostrarError("No hay keys");
+    return;
+  }
+
+  const nuevasKeys = texto
+    .split("\n")
+    .map(k=>k.trim())
+    .filter(k=>k.length > 0);
+
+  const ref = db.collection("claves").doc(producto);
 
   try{
     await db.runTransaction(async tx=>{
       const snap = await tx.get(ref);
       if(!snap.exists){
-        tx.set(ref,{lista:nuevas});
+        tx.set(ref,{ lista: nuevasKeys });
       }else{
-        tx.update(ref,{lista:snap.data().lista.concat(nuevas)});
+        const actuales = snap.data().lista || [];
+        tx.update(ref,{
+          lista: actuales.concat(nuevasKeys)
+        });
       }
     });
 
-    msg.textContent = "✅ Keys guardadas: "+nuevas.length;
-    msg.style.color="#22c55e";
-    msg.classList.remove("hidden");
     document.getElementById("keys").value="";
+    mostrarOk("Keys agregadas: " + nuevasKeys.length);
 
   }catch(e){
-    msg.textContent = "❌ Error Firestore Rules";
-    msg.style.color="red";
-    msg.classList.remove("hidden");
     console.error(e);
+    mostrarError("Error al guardar (rules)");
   }
+}
+
+function mostrarError(t){
+  const msg = document.getElementById("msg");
+  msg.textContent = "❌ " + t;
+  msg.style.color = "#f87171";
+  msg.classList.remove("hidden");
+}
+
+function mostrarOk(t){
+  const msg = document.getElementById("msg");
+  msg.textContent = "✅ " + t;
+  msg.style.color = "#22c55e";
+  msg.classList.remove("hidden");
 }
 </script>
 
