@@ -2,215 +2,296 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Panel Admin</title>
+<title>🎮 Panel Admin</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<!-- 🔥 FIREBASE COMPAT (OBLIGATORIO) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
 <style>
-*{box-sizing:border-box}
 body{
   margin:0;
-  background:#080411;
   font-family:Arial,Helvetica,sans-serif;
+  background:#05020b;
   color:#fff;
 }
-.top{
-  display:flex;
-  justify-content:center;
-  gap:14px;
-  padding:14px;
+.hidden{display:none}
+
+.container{
+  max-width:520px;
+  margin:auto;
+  padding:20px;
 }
-.top button{
-  padding:12px 20px;
+
+/* LOGIN */
+.login{
+  margin-top:80px;
+  background:#0d0820;
+  padding:24px;
+  border-radius:20px;
+  box-shadow:0 0 40px #7f4cff;
+}
+.login h2{text-align:center;color:#b57cff}
+.login input{
+  width:100%;
+  margin-top:12px;
+  padding:14px;
   border:none;
   border-radius:14px;
-  background:#6f3cff;
-  color:#000;
+  background:#160f30;
+  color:#fff;
+}
+.login button{
+  width:100%;
+  margin-top:16px;
+  padding:14px;
+  border:none;
+  border-radius:16px;
+  background:linear-gradient(135deg,#8a5cff,#c58bff);
   font-weight:bold;
 }
-.page{
-  display:none;
-  max-width:460px;
-  margin:20px auto;
-  background:#120a24;
+
+/* TOP MENU */
+.menu{
+  display:flex;
+  gap:12px;
+  margin-bottom:16px;
+}
+.menu button{
+  flex:1;
+  padding:14px;
+  border:none;
+  border-radius:16px;
+  background:#1a103a;
+  color:#b57cff;
+  font-weight:bold;
+}
+.menu button.active{
+  background:linear-gradient(135deg,#8a5cff,#c58bff);
+  color:#000;
+}
+
+/* CARDS */
+.card{
+  background:#0d0820;
   border-radius:22px;
   padding:20px;
-  box-shadow:0 0 40px #7a3cff;
+  box-shadow:0 0 40px #7f4cff;
 }
-.page.active{display:block}
-h2{
-  text-align:center;
-  color:#b57cff;
-}
+h3{text-align:center;color:#b57cff}
+
+/* SALDOS */
 .user{
-  background:#1b0f38;
-  padding:12px;
+  background:#140d30;
   border-radius:14px;
-  margin:10px 0;
+  padding:14px;
+  margin-top:12px;
 }
-select,textarea,input,button{
+.user small{color:#aaa}
+.actions{
+  display:flex;
+  gap:8px;
+  margin-top:8px;
+}
+.actions input{
+  flex:1;
+  padding:10px;
+  border:none;
+  border-radius:10px;
+  background:#1f1450;
+  color:#fff;
+  text-align:center;
+}
+.plus{background:#5bff9a;border:none;border-radius:10px}
+.minus{background:#ff5b5b;border:none;border-radius:10px;color:#fff}
+
+/* KEYS */
+select,textarea{
   width:100%;
   margin-top:10px;
   padding:14px;
   border:none;
   border-radius:14px;
-  background:#1b0f38;
+  background:#160f30;
   color:#fff;
 }
-textarea{min-height:140px}
-.btn{
+textarea{min-height:120px}
+.save{
+  width:100%;
+  margin-top:14px;
+  padding:14px;
+  border:none;
+  border-radius:16px;
   background:linear-gradient(135deg,#8a5cff,#c58bff);
-  color:#000;
   font-weight:bold;
 }
 .msg{text-align:center;margin-top:10px}
 .ok{color:#5bff9a}
 .err{color:#ff5b5b}
+
+.logout{
+  margin-top:20px;
+  width:100%;
+  padding:14px;
+  border:none;
+  border-radius:16px;
+  background:#ff5b5b;
+  color:#fff;
+  font-weight:bold;
+}
 </style>
 </head>
 
 <body>
 
-<!-- 🔝 MENU -->
-<div class="top">
-  <button onclick="show('saldos')">💰 SALDOS</button>
-  <button onclick="show('keys')">🔑 KEYS</button>
+<div class="container">
+
+<!-- 🔐 LOGIN -->
+<div id="loginBox" class="login">
+  <h2>🔐 LOGIN ADMIN</h2>
+  <input id="email" placeholder="Correo">
+  <input id="pass" type="password" placeholder="Contraseña">
+  <button onclick="login()">ENTRAR</button>
 </div>
 
-<!-- 💰 SALDOS -->
-<div id="saldos" class="page active">
-  <h2>💰 SALDOS</h2>
-  <input id="buscar" placeholder="Buscar correo o ID">
-  <div id="lista">Cargando usuarios...</div>
+<!-- 🎮 PANEL -->
+<div id="panelBox" class="hidden">
+
+  <div class="menu">
+    <button id="btnSaldo" class="active" onclick="verSaldo()">💰 SALDOS</button>
+    <button id="btnKeys" onclick="verKeys()">🔑 KEYS</button>
+  </div>
+
+  <!-- 💰 SALDOS -->
+  <div id="saldoBox" class="card">
+    <h3>💰 SALDOS</h3>
+    <input id="buscar" placeholder="Buscar correo o ID" oninput="buscarUsuario()">
+    <div id="estado">Cargando usuarios...</div>
+    <div id="lista"></div>
+  </div>
+
+  <!-- 🔑 KEYS -->
+  <div id="keysBox" class="card hidden">
+    <h3>🔑 KEYS</h3>
+    <label>Producto</label>
+    <select id="producto"><option>Cargando...</option></select>
+
+    <label>Keys (1 por línea)</label>
+    <textarea id="keys"></textarea>
+
+    <button class="save" onclick="guardarKeys()">AGREGAR KEYS</button>
+    <div id="msg" class="msg"></div>
+  </div>
+
+  <button class="logout" onclick="logout()">CERRAR SESIÓN</button>
+
+</div>
 </div>
 
-<!-- 🔑 KEYS -->
-<div id="keys" class="page">
-  <h2>🔑 KEYS</h2>
+<script>
+/* 🔥 FIREBASE CONFIG (CORRECTO) */
+firebase.initializeApp({
+  apiKey: "AIzaSyAKrBTAkJGhB9s3E3MExqzj8mtXgKYsWRc",
+  authDomain: "davidstore-51f7f.firebaseapp.com",
+  projectId: "davidstore-51f7f",
+  storageBucket: "davidstore-51f7f.appspot.com",
+  messagingSenderId: "363278778609",
+  appId: "1:363278778609:web:0714ebb6903b931a616950"
+});
 
-  <select id="producto">
-    <option>Cargando productos...</option>
-  </select>
+const auth = firebase.auth();
+const db   = firebase.firestore();
 
-  <textarea id="keysTxt" placeholder="1 key por línea"></textarea>
-  <button class="btn" onclick="guardarKeys()">AGREGAR KEYS</button>
-  <div id="msgKeys" class="msg"></div>
-</div>
+/* AUTH */
+auth.onAuthStateChanged(u=>{
+  loginBox.classList.toggle("hidden",!!u);
+  panelBox.classList.toggle("hidden",!u);
+  if(u){cargarUsuarios();cargarProductos();}
+});
 
-<!-- 🔥 FIREBASE -->
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import {
-  getFirestore,
-  collection,
-  getDocs,
-  addDoc
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+function login(){
+  auth.signInWithEmailAndPassword(email.value,pass.value)
+  .catch(e=>alert(e.message));
+}
+function logout(){auth.signOut();}
 
-/* 🔴 TUS DATOS */
-const ADMIN_EMAIL = "admin@admin.com";
-const ADMIN_PASSWORD = "TU_PASSWORD";
+/* VISTAS */
+function verSaldo(){
+  saldoBox.classList.remove("hidden");
+  keysBox.classList.add("hidden");
+  btnSaldo.classList.add("active");
+  btnKeys.classList.remove("active");
+}
+function verKeys(){
+  saldoBox.classList.add("hidden");
+  keysBox.classList.remove("hidden");
+  btnKeys.classList.add("active");
+  btnSaldo.classList.remove("active");
+}
 
-const firebaseConfig = {
-  apiKey: "TU_API_KEY",
-  authDomain: "TU_DOMINIO",
-  projectId: "TU_PROJECT_ID"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-/* 🔐 LOGIN ADMIN */
-signInWithEmailAndPassword(auth,ADMIN_EMAIL,ADMIN_PASSWORD)
-.then(()=>{
-  cargarUsuarios();
-  cargarProductos();
-})
-.catch(e=>alert("ERROR LOGIN: "+e.message));
-
-/* 📄 SALDOS */
-let usuariosCache=[];
+/* SALDOS */
 async function cargarUsuarios(){
-  const cont=document.getElementById("lista");
-  cont.innerHTML="";
-  const snap=await getDocs(collection(db,"usuarios"));
-  usuariosCache=[];
+  lista.innerHTML="";
+  const snap=await db.collection("login").get();
+  estado.textContent=`Usuarios: ${snap.size}`;
   snap.forEach(d=>{
-    usuariosCache.push({id:d.id,...d.data()});
-  });
-  renderUsuarios(usuariosCache);
-}
-
-function renderUsuarios(arr){
-  const cont=document.getElementById("lista");
-  cont.innerHTML="";
-  if(!arr.length){
-    cont.textContent="Sin usuarios";
-    return;
-  }
-  arr.forEach(u=>{
-    cont.innerHTML+=`
-      <div class="user">
-        📧 ${u.email || u.id}<br>
-        💎 Saldo: <b>${u.saldo || 0}</b>
-      </div>`;
+    const u=d.data();
+    lista.innerHTML+=`
+    <div class="user">
+      📧 <b>${u.email}</b><br>
+      💰 Saldo: <b>${u.saldo||0}</b><br>
+      <small>${d.id}</small>
+      <div class="actions">
+        <input id="m_${d.id}" type="number" placeholder="Monto">
+        <button class="plus" onclick="saldo('${d.id}',1)">+</button>
+        <button class="minus" onclick="saldo('${d.id}',-1)">-</button>
+      </div>
+    </div>`;
   });
 }
-
-document.getElementById("buscar").oninput=e=>{
-  const v=e.target.value.toLowerCase();
-  renderUsuarios(
-    usuariosCache.filter(u=>
-      (u.email||"").toLowerCase().includes(v) ||
-      u.id.toLowerCase().includes(v)
-    )
-  );
-};
-
-/* 🔑 PRODUCTOS */
-async function cargarProductos(){
-  const sel=document.getElementById("producto");
-  sel.innerHTML="<option value=''>Selecciona producto</option>";
-  const snap=await getDocs(collection(db,"productos"));
-  snap.forEach(d=>{
-    sel.innerHTML+=`<option value="${d.id}">${d.data().nombre||d.id}</option>`;
+function buscarUsuario(){
+  const t=buscar.value.toLowerCase();
+  document.querySelectorAll(".user").forEach(u=>{
+    u.style.display=u.innerText.toLowerCase().includes(t)?"block":"none";
   });
 }
+function saldo(id,s){
+  const m=Number(document.getElementById("m_"+id).value);
+  if(!m)return;
+  db.collection("login").doc(id).update({
+    saldo:firebase.firestore.FieldValue.increment(m*s)
+  }).then(cargarUsuarios);
+}
 
-/* ➕ GUARDAR KEYS */
-window.guardarKeys = async()=>{
-  const prod=document.getElementById("producto").value;
-  const txt=document.getElementById("keysTxt").value.trim();
-  const msg=document.getElementById("msgKeys");
-
-  if(!prod||!txt){
-    msg.textContent="❌ Falta producto o keys";
-    msg.className="msg err";
-    return;
-  }
-
-  const arr=txt.split("\n").map(x=>x.trim()).filter(x=>x);
-
-  for(const k of arr){
-    await addDoc(collection(db,"claves"),{
-      producto:prod,
-      key:k,
-      usada:false,
-      fecha:Date.now()
+/* KEYS */
+function cargarProductos(){
+  const sel=producto;
+  sel.innerHTML="<option>Cargando...</option>";
+  db.collection("claves").get().then(s=>{
+    sel.innerHTML="<option value=''>Selecciona producto</option>";
+    s.forEach(d=>{
+      const o=document.createElement("option");
+      o.value=d.id;o.textContent=d.id;
+      sel.appendChild(o);
     });
-  }
-
-  msg.textContent="✅ Keys guardadas";
-  msg.className="msg ok";
-  document.getElementById("keysTxt").value="";
-};
-
-/* 🔁 CAMBIO DE PAGINA */
-window.show=id=>{
-  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
-  document.getElementById(id).classList.add("active");
-};
+  });
+}
+function guardarKeys(){
+  const prod=producto.value;
+  const text=keys.value.trim();
+  if(!prod||!text)return msgError("Datos incompletos");
+  const arr=text.split("\n").map(x=>x.trim()).filter(x=>x);
+  db.collection("claves").doc(prod).update({
+    lista:firebase.firestore.FieldValue.arrayUnion(...arr)
+  }).then(()=>{
+    msgOk("Keys agregadas");
+    keys.value="";
+  }).catch(()=>msgError("Error Firebase"));
+}
+function msgOk(t){msg.textContent=t;msg.className="msg ok"}
+function msgError(t){msg.textContent=t;msg.className="msg err"}
 </script>
 
 </body>
