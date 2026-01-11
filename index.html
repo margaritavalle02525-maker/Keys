@@ -2,172 +2,179 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Admin Panel</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Key Generator Admin</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- ===== FIREBASE COMPAT ===== -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
 <style>
-body{margin:0;background:#050814;color:#fff;font-family:Arial}
-.hidden{display:none}
-.container{max-width:720px;margin:auto;padding:20px}
-h1,h2{text-align:center;color:#00eaff}
-input,textarea,select,button{
-  width:100%;margin-top:10px;padding:12px;
-  border-radius:12px;border:none;font-size:15px
+body{
+  background:radial-gradient(circle at top,#1a1033,#05010a);
+  font-family:Arial,Helvetica,sans-serif;
+  color:#fff;
+  margin:0;
+  padding:0;
 }
-input,textarea,select{background:#0b1025;color:#0ff}
-textarea{height:160px;resize:none}
-button{background:linear-gradient(135deg,#00eaff,#1e90ff);font-weight:bold;cursor:pointer}
-.producto{background:#0b1025;padding:10px;border-radius:10px;margin-top:8px}
-.log{text-align:center;margin-top:10px;color:#ff5555}
-.ok{color:#00ff88}
-.logout{background:#ff0033;color:#fff}
+.key-panel{
+  max-width:420px;
+  margin:40px auto;
+  background:#070b18;
+  padding:24px;
+  border-radius:26px;
+  box-shadow:0 0 35px #a855f7;
+}
+.key-panel h2{
+  text-align:center;
+  color:#c084fc;
+  letter-spacing:1px;
+}
+.key-panel label{
+  display:block;
+  margin-top:16px;
+  opacity:.85;
+}
+.key-panel select,
+.key-panel textarea{
+  width:100%;
+  margin-top:8px;
+  padding:14px;
+  border-radius:16px;
+  border:none;
+  background:#0f172a;
+  color:#fff;
+  font-size:15px;
+}
+.key-panel textarea{
+  min-height:140px;
+  resize:none;
+}
+.key-panel button{
+  width:100%;
+  margin-top:22px;
+  padding:18px;
+  border:none;
+  border-radius:20px;
+  font-size:18px;
+  font-weight:900;
+  cursor:pointer;
+  background:linear-gradient(135deg,#c084fc,#7c3aed);
+  color:#000;
+  box-shadow:0 0 25px #a855f7;
+}
+.key-panel button:hover{
+  transform:scale(1.02);
+}
+#kgMsg{
+  margin-top:14px;
+  text-align:center;
+  font-weight:700;
+}
+.hidden{display:none}
 </style>
 </head>
 
 <body>
 
-<!-- 🔐 LOGIN -->
-<div class="container" id="loginBox">
-  <h1>LOGIN ADMIN</h1>
-  <input id="email" type="email" placeholder="Correo">
-  <input id="password" type="password" placeholder="Contraseña">
-  <button id="btnLogin">ENTRAR</button>
-  <div id="loginMsg" class="log"></div>
+<div class="key-panel">
+  <h2>🔑 Key Generator</h2>
+
+  <label>Product Type</label>
+  <select id="kgProducto">
+    <option value="brmods">BR Mods</option>
+  </select>
+
+  <label>Validity</label>
+  <select id="kgDias">
+    <option value="1">1 Day - $0.99</option>
+    <option value="7">7 Days</option>
+    <option value="30">30 Days</option>
+  </select>
+
+  <label>Agregar Keys (1 por línea)</label>
+  <textarea id="kgKeys"
+    placeholder="PEGA AQUÍ LAS KEYS
+UNA POR LÍNEA
+EJEMPLO:
+KEY-AAA
+KEY-BBB
+KEY-CCC"></textarea>
+
+  <button onclick="agregarKeys()">⚡ AGREGAR KEYS</button>
+
+  <div id="kgMsg" class="hidden"></div>
 </div>
 
-<!-- 🎮 PANEL -->
-<div class="container hidden" id="panelBox">
-  <h1>PANEL ADMIN</h1>
+<script>
+// 🔥 CONFIGURA TU FIREBASE
+firebase.initializeApp({
+  apiKey: "AIzaSyAKrBTAkJGhB9s3E3MExqzj8mtXgKYsWRc",
+  authDomain: "davidstore-51f7f.firebaseapp.com",
+  projectId: "davidstore-51f7f"
+});
+const db = firebase.firestore();
 
-  <h2>Productos</h2>
-  <select id="productosSelect"></select>
-  <div id="productosLista"></div>
+// 🚀 AGREGAR KEYS REAL
+async function agregarKeys(){
+  const producto = document.getElementById("kgProducto").value;
+  const dias = document.getElementById("kgDias").value;
+  const texto = document.getElementById("kgKeys").value.trim();
+  const msg = document.getElementById("kgMsg");
 
-  <h2>Agregar keys al producto</h2>
-  <textarea id="keysInput" placeholder="B MODSKEY
-B MODKEY
-👤Brmods
-🔑brmods clave"></textarea>
+  msg.classList.add("hidden");
 
-  <button id="btnAddKeys">AGREGAR KEYS</button>
-  <div id="keysMsg" class="log ok"></div>
-
-  <button class="logout" id="btnLogout">SALIR</button>
-</div>
-
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-import {
-  getAuth,
-  signInWithEmailAndPassword,
-  onAuthStateChanged,
-  signOut
-} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
-
-import {
-  getFirestore,
-  collection,
-  getDocs,
-  doc,
-  updateDoc,
-  setDoc,
-  arrayUnion
-} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
-
-/* 🔴 TU CONFIG */
-const firebaseConfig = {
-  apiKey: "TU_API_KEY",
-  authDomain: "TU_PROYECTO.firebaseapp.com",
-  projectId: "TU_PROYECTO",
-  storageBucket: "TU_PROYECTO.appspot.com",
-  messagingSenderId: "ID",
-  appId: "APP_ID"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-/* 🔐 LOGIN */
-btnLogin.onclick = ()=>{
-  const e = email.value.trim();
-  const p = password.value.trim();
-
-  if(!e || !p){
-    loginMsg.innerText = "Completa los datos";
+  if(!texto){
+    msg.textContent = "❌ No hay keys";
+    msg.classList.remove("hidden");
     return;
   }
 
-  signInWithEmailAndPassword(auth,e,p)
-    .catch(err => loginMsg.innerText = err.message);
-};
+  // convertir texto a array (1 por línea)
+  const nuevasKeys = texto
+    .split("\n")
+    .map(k => k.trim())
+    .filter(k => k.length > 0);
 
-/* 👁️ SESIÓN */
-onAuthStateChanged(auth,user=>{
-  if(user){
-    loginBox.classList.add("hidden");
-    panelBox.classList.remove("hidden");
-    cargarProductos();
-  }else{
-    panelBox.classList.add("hidden");
-    loginBox.classList.remove("hidden");
+  if(nuevasKeys.length === 0){
+    msg.textContent = "❌ Formato inválido";
+    msg.classList.remove("hidden");
+    return;
   }
-});
 
-/* 📦 PRODUCTOS */
-let productoActual = null;
+  const docID = producto + "_" + dias + "d";
+  const ref = db.collection("claves").doc(docID);
 
-async function cargarProductos(){
-  const snap = await getDocs(collection(db,"productos"));
-  productosSelect.innerHTML="";
-  productosLista.innerHTML="";
+  try{
+    await db.runTransaction(async tx=>{
+      const snap = await tx.get(ref);
 
-  snap.forEach(d=>{
-    const p = d.data();
-    const opt = document.createElement("option");
-    opt.value = d.id;
-    opt.textContent = p.nombre;
-    productosSelect.appendChild(opt);
+      if(!snap.exists){
+        tx.set(ref,{
+          producto: "BR Mods",
+          dias: Number(dias),
+          lista: nuevasKeys
+        });
+      }else{
+        const actuales = snap.data().lista || [];
+        tx.update(ref,{
+          lista: actuales.concat(nuevasKeys)
+        });
+      }
+    });
 
-    const div = document.createElement("div");
-    div.className="producto";
-    div.innerHTML=`${p.nombre} | ${p.precio} | ${p.dias} días`;
-    productosLista.appendChild(div);
-  });
+    msg.textContent = "✅ " + nuevasKeys.length + " keys agregadas";
+    msg.style.color = "#22c55e";
+    msg.classList.remove("hidden");
+    document.getElementById("kgKeys").value = "";
 
-  productoActual = productosSelect.value;
+  }catch(e){
+    msg.textContent = "❌ Error al guardar";
+    msg.style.color = "#ef4444";
+    msg.classList.remove("hidden");
+  }
 }
-
-productosSelect.onchange = ()=> productoActual = productosSelect.value;
-
-/* 🔑 AGREGAR KEYS */
-btnAddKeys.onclick = async ()=>{
-  if(!productoActual) return;
-
-  const texto = keysInput.value.trim();
-  if(!texto) return;
-
-  const ref = doc(db,"keys",productoActual);
-
-  await setDoc(ref,{lista:[]},{merge:true});
-
-  let count = 0;
-  for(const l of texto.split("\n")){
-    const linea = l.trim();
-    if(linea){
-      await updateDoc(ref,{
-        lista: arrayUnion(linea)
-      });
-      count++;
-    }
-  }
-
-  keysMsg.innerText = `✔ ${count} keys agregadas`;
-  keysInput.value="";
-};
-
-/* 🔓 LOGOUT */
-btnLogout.onclick = ()=> signOut(auth);
 </script>
+
 </body>
 </html>
