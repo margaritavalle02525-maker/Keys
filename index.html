@@ -2,10 +2,10 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>🎮 Panel Admin Total</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎮 Panel Admin</title>
 
-<!-- 🔥 Firebase v9 COMPAT -->
+<!-- 🔥 Firebase v9 COMPAT (UNO SOLO) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -13,186 +13,178 @@
 <style>
 body{
   margin:0;
-  background:#05010a;
+  background:#06010d;
   font-family:Arial,Helvetica,sans-serif;
   color:#fff;
 }
-h2{color:#b57cff;text-align:center}
+h2{margin:0 0 12px;color:#c58bff}
+
 .container{
-  display:grid;
-  grid-template-columns:1fr 1fr;
+  display:flex;
   gap:20px;
   padding:20px;
+  max-width:1100px;
+  margin:auto;
 }
 .card{
+  flex:1;
   background:#0c0718;
-  border-radius:20px;
+  border-radius:22px;
   padding:20px;
-  box-shadow:0 0 35px #7f4cff;
+  box-shadow:0 0 40px #7f4cff;
 }
 input,select,textarea{
   width:100%;
   padding:12px;
-  margin-top:8px;
   border-radius:12px;
   border:none;
-  background:#140c28;
+  background:#120c22;
   color:#fff;
+  margin-top:8px;
 }
 textarea{min-height:120px}
 button{
-  width:100%;
-  margin-top:14px;
+  margin-top:12px;
   padding:12px;
+  width:100%;
   border:none;
   border-radius:14px;
   background:linear-gradient(135deg,#8a5cff,#c58bff);
   font-weight:bold;
-  cursor:pointer;
 }
 .user{
-  background:#140c28;
+  background:#120c22;
   padding:12px;
   border-radius:14px;
   margin-top:10px;
 }
-.actions{
-  display:flex;
-  gap:8px;
-  margin-top:8px;
-}
-.msg{text-align:center;margin-top:10px}
+.actions{display:flex;gap:6px;margin-top:6px}
+.actions input{flex:1;text-align:center}
+.plus{background:#00ffcc;color:#000}
+.minus{background:#ff5b5b;color:#fff}
+.msg{margin-top:8px;text-align:center}
 .ok{color:#5bff9a}
 .error{color:#ff5b5b}
-.login{
-  max-width:360px;
-  margin:80px auto;
-}
 .hidden{display:none}
 </style>
 </head>
 
 <body>
 
-<!-- 🔐 LOGIN -->
-<div id="loginBox" class="login">
-  <h2>🔐 LOGIN ADMIN</h2>
-  <input id="email" placeholder="Correo">
-  <input id="pass" type="password" placeholder="Contraseña">
-  <button onclick="login()">ENTRAR</button>
+<div class="container">
+
+<!-- 💰 SALDOS -->
+<div class="card">
+  <h2>💰 SALDOS</h2>
+  <input id="buscar" placeholder="Buscar correo o ID" oninput="buscarUsuario()">
+  <div id="estado">Cargando usuarios...</div>
+  <div id="lista"></div>
 </div>
 
-<!-- 🎮 PANEL -->
-<div id="panelBox" class="hidden">
-  <div class="container">
+<!-- 🔑 KEYS -->
+<div class="card">
+  <h2>🔑 KEYS</h2>
 
-    <!-- 💰 SALDOS -->
-    <div class="card">
-      <h2>💰 SALDOS</h2>
-      <div id="estado">Cargando usuarios...</div>
-      <div id="usuarios"></div>
-    </div>
+  <label>Producto</label>
+  <select id="producto">
+    <option>Cargando...</option>
+  </select>
 
-    <!-- 🔑 KEYS -->
-    <div class="card">
-      <h2>🔑 KEYS</h2>
+  <label>Keys (1 por línea)</label>
+  <textarea id="keys"></textarea>
 
-      <label>Producto</label>
-      <select id="producto"><option>Cargando...</option></select>
+  <button onclick="guardarKeys()">AGREGAR KEYS</button>
+  <div id="msg" class="msg"></div>
+</div>
 
-      <label>Keys (1 por línea)</label>
-      <textarea id="keys"></textarea>
-
-      <button onclick="guardarKeys()">AGREGAR KEYS</button>
-      <div id="msg" class="msg"></div>
-    </div>
-
-  </div>
 </div>
 
 <script>
-/* 🔥 FIREBASE */
-firebase.initializeApp({
+/* 🔥 FIREBASE CONFIG (EL TUYO, SIN TOCAR) */
+const firebaseConfig = {
   apiKey: "AIzaSyAKrBTAkJGhB9s3E3MExqzj8mtXgKYsWRc",
   authDomain: "davidstore-51f7f.firebaseapp.com",
   projectId: "davidstore-51f7f"
-});
+};
 
+firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
-const db   = firebase.firestore();
+const db = firebase.firestore();
 
-/* 🔐 AUTH */
-auth.onAuthStateChanged(u=>{
-  if(u){
-    loginBox.classList.add("hidden");
-    panelBox.classList.remove("hidden");
-    cargarUsuarios();
-    cargarProductos();
-  }else{
-    loginBox.classList.remove("hidden");
-    panelBox.classList.add("hidden");
-  }
+/* ================= SALDOS ================= */
+const lista = document.getElementById("lista");
+const estado = document.getElementById("estado");
+
+db.collection("login").onSnapshot(snap=>{
+  lista.innerHTML="";
+  estado.textContent = "Usuarios: " + snap.size;
+
+  snap.forEach(d=>{
+    const u=d.data();
+    lista.innerHTML+=`
+      <div class="user">
+        📧 <b>${u.email}</b><br>
+        💰 Saldo: <b>${u.saldo ?? 0}</b><br>
+        <small>${d.id}</small>
+        <div class="actions">
+          <input type="number" id="m_${d.id}" placeholder="Monto">
+          <button class="plus" onclick="cambiarSaldo('${d.id}',1)">+</button>
+          <button class="minus" onclick="cambiarSaldo('${d.id}',-1)">-</button>
+        </div>
+      </div>
+    `;
+  });
 });
 
-function login(){
-  auth.signInWithEmailAndPassword(email.value,pass.value)
-    .catch(e=>alert(e.message));
-}
-
-/* 💰 SALDOS */
-function cargarUsuarios(){
-  usuarios.innerHTML="";
-  db.collection("login").get().then(snap=>{
-    estado.textContent="👥 Usuarios: "+snap.size;
-    snap.forEach(d=>{
-      const u=d.data();
-      usuarios.innerHTML+=`
-        <div class="user">
-          📧 ${u.email}<br>
-          💰 Saldo: <b>${u.saldo||0}</b>
-          <div class="actions">
-            <input id="m_${d.id}" type="number" placeholder="Monto">
-            <button onclick="cambiarSaldo('${d.id}',1)">➕</button>
-            <button onclick="cambiarSaldo('${d.id}',-1)">➖</button>
-          </div>
-        </div>
-      `;
-    });
+function buscarUsuario(){
+  const t=buscar.value.toLowerCase();
+  document.querySelectorAll(".user").forEach(u=>{
+    u.style.display = u.innerText.toLowerCase().includes(t) ? "block":"none";
   });
 }
 
-function cambiarSaldo(id,s){
-  const v=Number(document.getElementById("m_"+id).value);
-  if(!v) return;
+function cambiarSaldo(id,signo){
+  const m = Number(document.getElementById("m_"+id).value);
+  if(!m||m<=0) return;
   db.collection("login").doc(id).update({
-    saldo: firebase.firestore.FieldValue.increment(v*s)
-  }).then(cargarUsuarios);
-}
-
-/* 🔑 KEYS */
-function cargarProductos(){
-  producto.innerHTML="<option>Cargando...</option>";
-  db.collection("claves").get().then(snap=>{
-    producto.innerHTML="<option value=''>Selecciona</option>";
-    snap.forEach(d=>{
-      producto.innerHTML+=`<option value="${d.id}">${d.id}</option>`;
-    });
+    saldo: firebase.firestore.FieldValue.increment(m*signo)
   });
 }
+
+/* ================= KEYS ================= */
+const sel=document.getElementById("producto");
+
+db.collection("claves").get().then(snap=>{
+  sel.innerHTML="<option value=''>Selecciona producto</option>";
+  if(snap.empty){
+    sel.innerHTML+="<option disabled>No hay productos</option>";
+  }
+  snap.forEach(d=>{
+    const o=document.createElement("option");
+    o.value=d.id;
+    o.textContent=d.id;
+    sel.appendChild(o);
+  });
+});
 
 function guardarKeys(){
-  const p=producto.value;
-  const t=keys.value.trim();
-  if(!p||!t) return;
-  const arr=t.split("\n").map(x=>x.trim()).filter(x=>x);
-  db.collection("claves").doc(p).update({
+  const prod=sel.value;
+  const texto=keys.value.trim();
+  const msg=document.getElementById("msg");
+
+  if(!prod){msg.textContent="Selecciona producto";msg.className="msg error";return;}
+  if(!texto){msg.textContent="Pega las keys";msg.className="msg error";return;}
+
+  const arr=texto.split("\n").map(x=>x.trim()).filter(x=>x);
+
+  db.collection("claves").doc(prod).update({
     lista: firebase.firestore.FieldValue.arrayUnion(...arr)
   }).then(()=>{
-    msg.textContent="✅ Keys agregadas";
+    msg.textContent="Keys agregadas";
     msg.className="msg ok";
     keys.value="";
   }).catch(()=>{
-    msg.textContent="❌ Error";
+    msg.textContent="Error al guardar";
     msg.className="msg error";
   });
 }
