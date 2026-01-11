@@ -2,8 +2,9 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Admin Panel 🎮</title>
+<title>Admin Panel</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
 <style>
 body{margin:0;background:#050814;color:#fff;font-family:Arial}
 .hidden{display:none}
@@ -15,46 +16,62 @@ input,textarea,select,button{
 }
 input,textarea,select{background:#0b1025;color:#0ff}
 textarea{height:160px;resize:none}
-button{background:linear-gradient(135deg,#00eaff,#1e90ff);font-weight:bold}
+button{background:linear-gradient(135deg,#00eaff,#1e90ff);font-weight:bold;cursor:pointer}
 .producto{background:#0b1025;padding:10px;border-radius:10px;margin-top:8px}
-.log{text-align:center;margin-top:10px;color:#ff4444}
+.log{text-align:center;margin-top:10px;color:#ff5555}
 .ok{color:#00ff88}
+.logout{background:#ff0033;color:#fff}
 </style>
 </head>
 
 <body>
 
-<!-- LOGIN -->
+<!-- 🔐 LOGIN -->
 <div class="container" id="loginBox">
-  <h1>🔐 LOGIN</h1>
-  <input id="loginKey" placeholder="Key de acceso">
+  <h1>LOGIN ADMIN</h1>
+  <input id="email" type="email" placeholder="Correo">
+  <input id="password" type="password" placeholder="Contraseña">
   <button id="btnLogin">ENTRAR</button>
   <div id="loginMsg" class="log"></div>
 </div>
 
-<!-- PANEL -->
+<!-- 🎮 PANEL -->
 <div class="container hidden" id="panelBox">
-  <h1>🎮 PANEL ADMIN</h1>
+  <h1>PANEL ADMIN</h1>
 
-  <h2>📦 Productos</h2>
+  <h2>Productos</h2>
   <select id="productosSelect"></select>
   <div id="productosLista"></div>
 
-  <h2>🔑 Agregar Keys al producto</h2>
-  <textarea id="keysInput" placeholder="KEY1
-KEY2
+  <h2>Agregar keys al producto</h2>
+  <textarea id="keysInput" placeholder="B MODSKEY
+B MODKEY
 👤Brmods
 🔑brmods clave"></textarea>
+
   <button id="btnAddKeys">AGREGAR KEYS</button>
   <div id="keysMsg" class="log ok"></div>
 
-  <button onclick="logout()" style="background:#ff0033;color:#fff">SALIR</button>
+  <button class="logout" id="btnLogout">SALIR</button>
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import {
-  getFirestore, collection, getDocs, doc, getDoc, updateDoc, arrayUnion
+  getAuth,
+  signInWithEmailAndPassword,
+  onAuthStateChanged,
+  signOut
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+
+import {
+  getFirestore,
+  collection,
+  getDocs,
+  doc,
+  updateDoc,
+  setDoc,
+  arrayUnion
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
 /* 🔴 TU CONFIG */
@@ -68,26 +85,34 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 const db = getFirestore(app);
 
-/* 🔐 LOGIN SOLO VALIDA */
-const loginDoc = doc(db,"claves","BRMODS_15DIAS");
+/* 🔐 LOGIN */
+btnLogin.onclick = ()=>{
+  const e = email.value.trim();
+  const p = password.value.trim();
 
-btnLogin.onclick = async ()=>{
-  const key = loginKey.value.trim();
-  if(!key) return loginMsg.innerText="❌ Ingresa una key";
+  if(!e || !p){
+    loginMsg.innerText = "Completa los datos";
+    return;
+  }
 
-  const snap = await getDoc(loginDoc);
-  if(!snap.exists()) return loginMsg.innerText="❌ Login no existe";
+  signInWithEmailAndPassword(auth,e,p)
+    .catch(err => loginMsg.innerText = err.message);
+};
 
-  if((snap.data().lista||[]).includes(key)){
+/* 👁️ SESIÓN */
+onAuthStateChanged(auth,user=>{
+  if(user){
     loginBox.classList.add("hidden");
     panelBox.classList.remove("hidden");
     cargarProductos();
   }else{
-    loginMsg.innerText="❌ Key inválida";
+    panelBox.classList.add("hidden");
+    loginBox.classList.remove("hidden");
   }
-};
+});
 
 /* 📦 PRODUCTOS */
 let productoActual = null;
@@ -106,7 +131,7 @@ async function cargarProductos(){
 
     const div = document.createElement("div");
     div.className="producto";
-    div.innerHTML=`🎮 ${p.nombre} | 💰 ${p.precio} | ⏳ ${p.dias}`;
+    div.innerHTML=`${p.nombre} | ${p.precio} | ${p.dias} días`;
     productosLista.appendChild(div);
   });
 
@@ -115,7 +140,7 @@ async function cargarProductos(){
 
 productosSelect.onchange = ()=> productoActual = productosSelect.value;
 
-/* 🔑 AGREGAR KEYS AL PRODUCTO */
+/* 🔑 AGREGAR KEYS */
 btnAddKeys.onclick = async ()=>{
   if(!productoActual) return;
 
@@ -123,25 +148,26 @@ btnAddKeys.onclick = async ()=>{
   if(!texto) return;
 
   const ref = doc(db,"keys",productoActual);
-  let count=0;
 
+  await setDoc(ref,{lista:[]},{merge:true});
+
+  let count = 0;
   for(const l of texto.split("\n")){
     const linea = l.trim();
     if(linea){
-      await updateDoc(ref,{ lista: arrayUnion(linea) });
+      await updateDoc(ref,{
+        lista: arrayUnion(linea)
+      });
       count++;
     }
   }
 
-  keysMsg.innerText = `✅ ${count} keys agregadas`;
+  keysMsg.innerText = `✔ ${count} keys agregadas`;
   keysInput.value="";
 };
 
-/* SALIR */
-window.logout = ()=>{
-  panelBox.classList.add("hidden");
-  loginBox.classList.remove("hidden");
-};
+/* 🔓 LOGOUT */
+btnLogout.onclick = ()=> signOut(auth);
 </script>
 </body>
 </html>
