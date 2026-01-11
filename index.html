@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>🎮 Panel Claves</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body{
+  margin:0;
+  background:#070b14;
+  color:#fff;
+  font-family:Arial,Helvetica,sans-serif;
+}
+.container{
+  max-width:600px;
+  margin:auto;
+  padding:20px;
+}
+h2{text-align:center;color:#00ffcc}
+
+input{
+  width:100%;
+  padding:12px;
+  margin-top:8px;
+  border:none;
+  border-radius:10px;
+  background:#121c33;
+  color:#fff;
+}
+button{
+  padding:12px;
+  border:none;
+  border-radius:10px;
+  font-weight:bold;
+  cursor:pointer;
+}
+.hidden{display:none}
+
+/* BUSCADOR */
+.search{
+  background:#0b1220;
+  padding:12px;
+  border-radius:14px;
+  margin-bottom:16px;
+}
+
+/* PRODUCTO */
+.producto{
+  background:#121c33;
+  padding:14px;
+  border-radius:14px;
+  margin-top:14px;
+  box-shadow:0 0 12px #000;
+}
+.producto small{color:#aaa}
+
+.actions{
+  display:flex;
+  gap:8px;
+  margin-top:10px;
+}
+.actions button{
+  background:#00ffcc;
+  color:#000;
+}
+
+.logout{
+  width:100%;
+  margin-top:20px;
+  background:#ff4d4d;
+  color:#fff;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<!-- 🔐 LOGIN -->
+<div id="loginBox">
+  <h2>🔐 LOGIN ADMIN</h2>
+  <input id="email" placeholder="Correo admin">
+  <input id="pass" type="password" placeholder="Contraseña">
+  <button onclick="login()">ENTRAR</button>
+</div>
+
+<!-- 📦 PANEL -->
+<div id="panelBox" class="hidden">
+  <h2>📦 PANEL CLAVES</h2>
+
+  <div class="search">
+    🔍
+    <input id="buscar" placeholder="Buscar producto / ID" oninput="buscarProducto()">
+  </div>
+
+  <div id="estado">Conectando a Firebase...</div>
+  <div id="lista"></div>
+
+  <button class="logout" onclick="logout()">CERRAR SESIÓN</button>
+</div>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
+from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, collection, getDocs, doc, updateDoc, arrayUnion }
+from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+/* 🔥 FIREBASE */
+const firebaseConfig = {
+  apiKey: "AIzaSyAKrBTAkJGhB9s3E3MExqzj8mtXgKYsWRc",
+  authDomain: "davidstore-51f7f.firebaseapp.com",
+  projectId: "davidstore-51f7f"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+const loginBox = document.getElementById("loginBox");
+const panelBox = document.getElementById("panelBox");
+const lista = document.getElementById("lista");
+const estado = document.getElementById("estado");
+
+/* 🔐 AUTH */
+onAuthStateChanged(auth,user=>{
+  if(user){
+    loginBox.classList.add("hidden");
+    panelBox.classList.remove("hidden");
+    cargarClaves();
+  }else{
+    loginBox.classList.remove("hidden");
+    panelBox.classList.add("hidden");
+  }
+});
+
+/* LOGIN */
+window.login = ()=>{
+  signInWithEmailAndPassword(auth,email.value,pass.value)
+    .catch(e=>alert(e.message));
+};
+
+/* LOGOUT */
+window.logout = ()=>signOut(auth);
+
+/* 🔑 CARGAR CLAVES */
+async function cargarClaves(){
+  lista.innerHTML="";
+  estado.textContent = "Cargando productos...";
+  const snap = await getDocs(collection(db,"claves"));
+
+  estado.textContent = `🎮 Productos: ${snap.size}`;
+
+  snap.forEach(d=>{
+    const p = d.data();
+    const totalKeys = Array.isArray(p.keys) ? p.keys.length : 0;
+
+    lista.innerHTML += `
+      <div class="producto">
+        🎮 <b>${p.nombre ?? "SIN NOMBRE"}</b><br>
+        💰 Precio: ${p.precio ?? 0}<br>
+        ⏳ Duración: ${p.duracion ?? "-"}<br>
+        🔑 Keys: ${totalKeys}<br>
+        <small>ID: ${d.id}</small>
+
+        <div class="actions">
+          <input id="k_${d.id}" placeholder="Nueva key">
+          <button onclick="agregarKey('${d.id}')">AGREGAR</button>
+        </div>
+      </div>
+    `;
+  });
+}
+
+/* 🔍 BUSCAR */
+window.buscarProducto = ()=>{
+  const t = buscar.value.toLowerCase();
+  document.querySelectorAll(".producto").forEach(p=>{
+    p.style.display = p.innerText.toLowerCase().includes(t) ? "block" : "none";
+  });
+};
+
+/* ➕ AGREGAR KEY */
+window.agregarKey = async (id)=>{
+  const inp = document.getElementById("k_"+id);
+  const key = inp.value.trim();
+  if(!key) return alert("❌ Key vacía");
+
+  await updateDoc(doc(db,"claves",id),{
+    keys: arrayUnion(key)
+  });
+
+  inp.value="";
+  cargarClaves();
+};
+</script>
+
+</body>
+</html>
