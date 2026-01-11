@@ -2,97 +2,59 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Admin BRMODS 🎮</title>
+<title>Admin Panel 🎮</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-
 <style>
-body{
-  margin:0;
-  background:#050814;
-  color:#fff;
-  font-family:Arial,Helvetica,sans-serif
-}
+body{margin:0;background:#050814;color:#fff;font-family:Arial}
 .hidden{display:none}
-.container{
-  max-width:700px;
-  margin:auto;
-  padding:20px
+.container{max-width:720px;margin:auto;padding:20px}
+h1,h2{text-align:center;color:#00eaff}
+input,textarea,select,button{
+  width:100%;margin-top:10px;padding:12px;
+  border-radius:12px;border:none;font-size:15px
 }
-h1,h2{
-  text-align:center;
-  color:#00eaff
-}
-input,textarea,button{
-  width:100%;
-  margin-top:10px;
-  padding:12px;
-  border-radius:12px;
-  border:none;
-  font-size:15px
-}
-input,textarea{
-  background:#0b1025;
-  color:#0ff
-}
-textarea{
-  height:180px;
-  resize:none
-}
-button{
-  background:linear-gradient(135deg,#00eaff,#1e90ff);
-  font-weight:bold;
-  cursor:pointer;
-  color:#000
-}
-.log{
-  margin-top:10px;
-  text-align:center;
-  color:#ff4444
-}
+input,textarea,select{background:#0b1025;color:#0ff}
+textarea{height:160px;resize:none}
+button{background:linear-gradient(135deg,#00eaff,#1e90ff);font-weight:bold}
+.producto{background:#0b1025;padding:10px;border-radius:10px;margin-top:8px}
+.log{text-align:center;margin-top:10px;color:#ff4444}
 .ok{color:#00ff88}
-.logout{
-  background:#ff0033;
-  color:#fff;
-  margin-top:20px
-}
 </style>
 </head>
 
 <body>
 
-<!-- 🔐 LOGIN -->
+<!-- LOGIN -->
 <div class="container" id="loginBox">
   <h1>🔐 LOGIN</h1>
-  <input id="loginKey" placeholder="Ingresa tu key">
+  <input id="loginKey" placeholder="Key de acceso">
   <button id="btnLogin">ENTRAR</button>
   <div id="loginMsg" class="log"></div>
 </div>
 
-<!-- 🎮 PANEL -->
+<!-- PANEL -->
 <div class="container hidden" id="panelBox">
   <h1>🎮 PANEL ADMIN</h1>
 
-  <h2>🔑 Agregar Keys (array)</h2>
-  <textarea id="keysInput" placeholder="B MODSKEY
-B MODKEY
+  <h2>📦 Productos</h2>
+  <select id="productosSelect"></select>
+  <div id="productosLista"></div>
+
+  <h2>🔑 Agregar Keys al producto</h2>
+  <textarea id="keysInput" placeholder="KEY1
+KEY2
 👤Brmods
 🔑brmods clave"></textarea>
-
-  <button id="btnAddKeys">AGREGAR</button>
+  <button id="btnAddKeys">AGREGAR KEYS</button>
   <div id="keysMsg" class="log ok"></div>
 
-  <button class="logout" id="btnLogout">SALIR</button>
+  <button onclick="logout()" style="background:#ff0033;color:#fff">SALIR</button>
 </div>
 
 <script type="module">
-/* 🔥 FIREBASE */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import {
-  getFirestore,
-  doc,
-  getDoc,
-  updateDoc,
-  arrayUnion
+  getFirestore, collection, getDocs, doc, getDoc, updateDoc, arrayUnion
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
 /* 🔴 TU CONFIG */
@@ -108,75 +70,78 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-/* REFERENCIA FIJA */
-const docRef = doc(db,"claves","BRMODS_15DIAS");
+/* 🔐 LOGIN SOLO VALIDA */
+const loginDoc = doc(db,"claves","BRMODS_15DIAS");
 
-/* 🔐 LOGIN */
-document.getElementById("btnLogin").addEventListener("click", async ()=>{
-  const key = document.getElementById("loginKey").value.trim();
-  const msg = document.getElementById("loginMsg");
+btnLogin.onclick = async ()=>{
+  const key = loginKey.value.trim();
+  if(!key) return loginMsg.innerText="❌ Ingresa una key";
 
-  if(!key){
-    msg.innerText="❌ Ingresa una key";
-    return;
+  const snap = await getDoc(loginDoc);
+  if(!snap.exists()) return loginMsg.innerText="❌ Login no existe";
+
+  if((snap.data().lista||[]).includes(key)){
+    loginBox.classList.add("hidden");
+    panelBox.classList.remove("hidden");
+    cargarProductos();
+  }else{
+    loginMsg.innerText="❌ Key inválida";
   }
+};
 
-  try{
-    const snap = await getDoc(docRef);
-    if(!snap.exists()){
-      msg.innerText="❌ Documento no existe";
-      return;
-    }
+/* 📦 PRODUCTOS */
+let productoActual = null;
 
-    const lista = snap.data().lista || [];
+async function cargarProductos(){
+  const snap = await getDocs(collection(db,"productos"));
+  productosSelect.innerHTML="";
+  productosLista.innerHTML="";
 
-    if(lista.includes(key)){
-      loginBox.classList.add("hidden");
-      panelBox.classList.remove("hidden");
-      msg.innerText="";
-    }else{
-      msg.innerText="❌ Key inválida";
-    }
+  snap.forEach(d=>{
+    const p = d.data();
+    const opt = document.createElement("option");
+    opt.value = d.id;
+    opt.textContent = p.nombre;
+    productosSelect.appendChild(opt);
 
-  }catch(e){
-    msg.innerText="❌ Error Firebase";
-  }
-});
+    const div = document.createElement("div");
+    div.className="producto";
+    div.innerHTML=`🎮 ${p.nombre} | 💰 ${p.precio} | ⏳ ${p.dias}`;
+    productosLista.appendChild(div);
+  });
 
-/* 🔓 LOGOUT */
-document.getElementById("btnLogout").addEventListener("click", ()=>{
-  panelBox.classList.add("hidden");
-  loginBox.classList.remove("hidden");
-  document.getElementById("loginKey").value="";
-});
+  productoActual = productosSelect.value;
+}
 
-/* 🔑 AGREGAR KEYS AL ARRAY */
-document.getElementById("btnAddKeys").addEventListener("click", async ()=>{
-  const texto = document.getElementById("keysInput").value.trim();
-  const msg = document.getElementById("keysMsg");
+productosSelect.onchange = ()=> productoActual = productosSelect.value;
 
-  if(!texto){
-    msg.style.color="red";
-    msg.innerText="❌ No hay keys";
-    return;
-  }
+/* 🔑 AGREGAR KEYS AL PRODUCTO */
+btnAddKeys.onclick = async ()=>{
+  if(!productoActual) return;
 
-  let count = 0;
+  const texto = keysInput.value.trim();
+  if(!texto) return;
+
+  const ref = doc(db,"keys",productoActual);
+  let count=0;
 
   for(const l of texto.split("\n")){
     const linea = l.trim();
     if(linea){
-      await updateDoc(docRef,{
-        lista: arrayUnion(linea)
-      });
+      await updateDoc(ref,{ lista: arrayUnion(linea) });
       count++;
     }
   }
 
-  msg.style.color="#00ff88";
-  msg.innerText=`✅ ${count} keys agregadas al array`;
-  document.getElementById("keysInput").value="";
-});
+  keysMsg.innerText = `✅ ${count} keys agregadas`;
+  keysInput.value="";
+};
+
+/* SALIR */
+window.logout = ()=>{
+  panelBox.classList.add("hidden");
+  loginBox.classList.remove("hidden");
+};
 </script>
 </body>
 </html>
