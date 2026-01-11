@@ -5,38 +5,27 @@
 <title>Key Generator Admin</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- ===== FIREBASE COMPAT ===== -->
+<!-- FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
 <style>
 body{
   background:radial-gradient(circle at top,#1a1033,#05010a);
-  font-family:Arial,Helvetica,sans-serif;
+  font-family:Arial;
   color:#fff;
-  margin:0;
-  padding:0;
 }
-.key-panel{
+.panel{
   max-width:420px;
   margin:40px auto;
   background:#070b18;
-  padding:24px;
+  padding:26px;
   border-radius:26px;
-  box-shadow:0 0 35px #a855f7;
+  box-shadow:0 0 40px #a855f7;
 }
-.key-panel h2{
-  text-align:center;
-  color:#c084fc;
-  letter-spacing:1px;
-}
-.key-panel label{
-  display:block;
-  margin-top:16px;
-  opacity:.85;
-}
-.key-panel select,
-.key-panel textarea{
+h2{text-align:center;color:#c084fc}
+label{display:block;margin-top:16px;opacity:.85}
+select,textarea{
   width:100%;
   margin-top:8px;
   padding:14px;
@@ -44,13 +33,9 @@ body{
   border:none;
   background:#0f172a;
   color:#fff;
-  font-size:15px;
 }
-.key-panel textarea{
-  min-height:140px;
-  resize:none;
-}
-.key-panel button{
+textarea{min-height:140px;resize:none}
+button{
   width:100%;
   margin-top:22px;
   padding:18px;
@@ -58,120 +43,117 @@ body{
   border-radius:20px;
   font-size:18px;
   font-weight:900;
-  cursor:pointer;
   background:linear-gradient(135deg,#c084fc,#7c3aed);
   color:#000;
-  box-shadow:0 0 25px #a855f7;
 }
-.key-panel button:hover{
-  transform:scale(1.02);
-}
-#kgMsg{
-  margin-top:14px;
-  text-align:center;
-  font-weight:700;
-}
+#msg{text-align:center;margin-top:12px;font-weight:700}
 .hidden{display:none}
 </style>
 </head>
 
 <body>
 
-<div class="key-panel">
+<div class="panel">
   <h2>🔑 Key Generator</h2>
 
-  <label>Product Type</label>
-  <select id="kgProducto">
-    <option value="brmods">BR Mods</option>
-  </select>
+  <label>Producto</label>
+  <select id="producto"></select>
 
-  <label>Validity</label>
-  <select id="kgDias">
-    <option value="1">1 Day - $0.99</option>
-    <option value="7">7 Days</option>
-    <option value="30">30 Days</option>
-  </select>
+  <label>Duración</label>
+  <select id="duracion"></select>
 
   <label>Agregar Keys (1 por línea)</label>
-  <textarea id="kgKeys"
-    placeholder="PEGA AQUÍ LAS KEYS
-UNA POR LÍNEA
-EJEMPLO:
-KEY-AAA
-KEY-BBB
-KEY-CCC"></textarea>
+  <textarea id="keys"></textarea>
 
-  <button onclick="agregarKeys()">⚡ AGREGAR KEYS</button>
-
-  <div id="kgMsg" class="hidden"></div>
+  <button onclick="guardarKeys()">⚡ AGREGAR KEYS</button>
+  <div id="msg" class="hidden"></div>
 </div>
 
 <script>
-// 🔥 CONFIGURA TU FIREBASE
+// 🔥 TU FIREBASE REAL
 firebase.initializeApp({
-  apiKey: "AIzaSyAKrBTAkJGhB9s3E3MExqzj8mtXgKYsWRc",
-  authDomain: "davidstore-51f7f.firebaseapp.com",
-  projectId: "davidstore-51f7f"
+  apiKey: "TU_API_KEY",
+  authDomain: "TU_AUTH_DOMAIN",
+  projectId: "TU_PROJECT_ID"
 });
 const db = firebase.firestore();
 
-// 🚀 AGREGAR KEYS REAL
-async function agregarKeys(){
-  const producto = document.getElementById("kgProducto").value;
-  const dias = document.getElementById("kgDias").value;
-  const texto = document.getElementById("kgKeys").value.trim();
-  const msg = document.getElementById("kgMsg");
+// 🔄 CARGAR PRODUCTOS
+let productosCache = {};
 
+db.collection("productos").onSnapshot(snap=>{
+  const selProducto = document.getElementById("producto");
+  selProducto.innerHTML = "";
+  productosCache = {};
+
+  snap.forEach(doc=>{
+    productosCache[doc.id] = doc.data();
+    const opt = document.createElement("option");
+    opt.value = doc.id;
+    opt.textContent = doc.data().nombre;
+    selProducto.appendChild(opt);
+  });
+
+  cargarDuraciones();
+});
+
+// 🔄 CARGAR DURACIONES SEGÚN PRODUCTO
+function cargarDuraciones(){
+  const id = document.getElementById("producto").value;
+  const selDur = document.getElementById("duracion");
+  selDur.innerHTML = "";
+
+  Object.entries(productosCache).forEach(([docId,data])=>{
+    if(data.nombre === productosCache[id].nombre){
+      const opt = document.createElement("option");
+      opt.value = docId;
+      opt.textContent = data.dias + " días";
+      selDur.appendChild(opt);
+    }
+  });
+}
+
+document.getElementById("producto")
+  .addEventListener("change", cargarDuraciones);
+
+// 💾 GUARDAR KEYS
+async function guardarKeys(){
+  const msg = document.getElementById("msg");
   msg.classList.add("hidden");
+
+  const idProducto = document.getElementById("duracion").value;
+  const texto = document.getElementById("keys").value.trim();
 
   if(!texto){
     msg.textContent = "❌ No hay keys";
+    msg.style.color="red";
     msg.classList.remove("hidden");
     return;
   }
 
-  // convertir texto a array (1 por línea)
-  const nuevasKeys = texto
-    .split("\n")
-    .map(k => k.trim())
-    .filter(k => k.length > 0);
-
-  if(nuevasKeys.length === 0){
-    msg.textContent = "❌ Formato inválido";
-    msg.classList.remove("hidden");
-    return;
-  }
-
-  const docID = producto + "_" + dias + "d";
-  const ref = db.collection("claves").doc(docID);
+  const nuevas = texto.split("\n").map(k=>k.trim()).filter(Boolean);
+  const ref = db.collection("claves").doc(idProducto);
 
   try{
     await db.runTransaction(async tx=>{
       const snap = await tx.get(ref);
-
       if(!snap.exists){
-        tx.set(ref,{
-          producto: "BR Mods",
-          dias: Number(dias),
-          lista: nuevasKeys
-        });
+        tx.set(ref,{lista:nuevas});
       }else{
-        const actuales = snap.data().lista || [];
-        tx.update(ref,{
-          lista: actuales.concat(nuevasKeys)
-        });
+        tx.update(ref,{lista:snap.data().lista.concat(nuevas)});
       }
     });
 
-    msg.textContent = "✅ " + nuevasKeys.length + " keys agregadas";
-    msg.style.color = "#22c55e";
+    msg.textContent = "✅ Keys guardadas: "+nuevas.length;
+    msg.style.color="#22c55e";
     msg.classList.remove("hidden");
-    document.getElementById("kgKeys").value = "";
+    document.getElementById("keys").value="";
 
   }catch(e){
-    msg.textContent = "❌ Error al guardar";
-    msg.style.color = "#ef4444";
+    msg.textContent = "❌ Error Firestore Rules";
+    msg.style.color="red";
     msg.classList.remove("hidden");
+    console.error(e);
   }
 }
 </script>
