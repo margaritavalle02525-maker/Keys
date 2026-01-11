@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Admin Panel 🎮</title>
+<title>Admin BRMODS 🎮</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
@@ -14,7 +14,7 @@ body{
 }
 .hidden{display:none}
 .container{
-  max-width:720px;
+  max-width:700px;
   margin:auto;
   padding:20px
 }
@@ -22,7 +22,7 @@ h1,h2{
   text-align:center;
   color:#00eaff
 }
-input,select,textarea,button{
+input,textarea,button{
   width:100%;
   margin-top:10px;
   padding:12px;
@@ -30,7 +30,7 @@ input,select,textarea,button{
   border:none;
   font-size:15px
 }
-input,select,textarea{
+input,textarea{
   background:#0b1025;
   color:#0ff
 }
@@ -44,18 +44,14 @@ button{
   cursor:pointer;
   color:#000
 }
-.producto{
-  background:#0b1025;
-  padding:12px;
-  border-radius:12px;
-  margin-top:10px
-}
 .log{
   margin-top:10px;
-  text-align:center
+  text-align:center;
+  color:#ff4444
 }
+.ok{color:#00ff88}
 .logout{
-  background:#ff0044;
+  background:#ff0033;
   color:#fff;
   margin-top:20px
 }
@@ -66,10 +62,9 @@ button{
 
 <!-- 🔐 LOGIN -->
 <div class="container" id="loginBox">
-  <h1>🔐 LOGIN ADMIN</h1>
-  <input id="email" placeholder="Correo">
-  <input id="password" type="password" placeholder="Contraseña">
-  <button onclick="login()">ENTRAR</button>
+  <h1>🔐 LOGIN</h1>
+  <input id="loginKey" placeholder="Ingresa tu key">
+  <button id="btnLogin">ENTRAR</button>
   <div id="loginMsg" class="log"></div>
 </div>
 
@@ -77,42 +72,33 @@ button{
 <div class="container hidden" id="panelBox">
   <h1>🎮 PANEL ADMIN</h1>
 
-  <h2>📦 Productos</h2>
-  <select id="productosSelect"></select>
-  <div id="productosLista"></div>
-
-  <h2>🔑 Agregar Keys</h2>
-  <textarea id="keysInput" placeholder="KEY-1
-KEY-2
+  <h2>🔑 Agregar Keys (array)</h2>
+  <textarea id="keysInput" placeholder="B MODSKEY
+B MODKEY
 👤Brmods
 🔑brmods clave"></textarea>
-  <button onclick="agregarKeys()">AGREGAR KEYS</button>
-  <div id="keysMsg" class="log"></div>
 
-  <button class="logout" onclick="logout()">CERRAR SESIÓN</button>
+  <button id="btnAddKeys">AGREGAR</button>
+  <div id="keysMsg" class="log ok"></div>
+
+  <button class="logout" id="btnLogout">SALIR</button>
 </div>
 
 <script type="module">
+/* 🔥 FIREBASE */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-import { 
-  getAuth,
-  signInWithEmailAndPassword,
-  onAuthStateChanged,
-  signOut
-} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
-
 import {
-  getDatabase,
-  ref,
-  onValue,
-  push
-} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+  getFirestore,
+  doc,
+  getDoc,
+  updateDoc,
+  arrayUnion
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-/* 🔴 TU FIREBASE CONFIG 🔴 */
+/* 🔴 TU CONFIG */
 const firebaseConfig = {
   apiKey: "TU_API_KEY",
-  authDomain: "TU_DOMINIO.firebaseapp.com",
-  databaseURL: "https://TU_PROYECTO.firebaseio.com",
+  authDomain: "TU_PROYECTO.firebaseapp.com",
   projectId: "TU_PROYECTO",
   storageBucket: "TU_PROYECTO.appspot.com",
   messagingSenderId: "ID",
@@ -120,98 +106,77 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getDatabase(app);
+const db = getFirestore(app);
+
+/* REFERENCIA FIJA */
+const docRef = doc(db,"claves","BRMODS_15DIAS");
 
 /* 🔐 LOGIN */
-window.login = function(){
-  const email = email.value;
-  const pass = password.value;
+document.getElementById("btnLogin").addEventListener("click", async ()=>{
+  const key = document.getElementById("loginKey").value.trim();
+  const msg = document.getElementById("loginMsg");
 
-  signInWithEmailAndPassword(auth,email,pass)
-    .catch(err=>{
-      loginMsg.style.color="red";
-      loginMsg.innerText=err.message;
-    });
-};
-
-/* 🔓 LOGOUT */
-window.logout = function(){
-  signOut(auth);
-};
-
-/* 👁️ CONTROL SESIÓN */
-onAuthStateChanged(auth,user=>{
-  if(user){
-    loginBox.classList.add("hidden");
-    panelBox.classList.remove("hidden");
-    cargarProductos();
-  }else{
-    panelBox.classList.add("hidden");
-    loginBox.classList.remove("hidden");
-  }
-});
-
-/* 📦 PRODUCTOS */
-function cargarProductos(){
-  const productosRef = ref(db,"productos"); // 👈 CAMBIA SOLO SI TU NODO ES OTRO
-
-  onValue(productosRef,snap=>{
-    productosSelect.innerHTML="";
-    productosLista.innerHTML="";
-
-    if(!snap.exists()){
-      productosSelect.innerHTML="<option>No hay productos</option>";
-      return;
-    }
-
-    snap.forEach(p=>{
-      const d = p.val();
-
-      const opt = document.createElement("option");
-      opt.textContent = `${d.nombre} - S/ ${d.precio}`;
-      productosSelect.appendChild(opt);
-
-      const div = document.createElement("div");
-      div.className="producto";
-      div.innerHTML=`
-        🎮 <b>${d.nombre}</b><br>
-        💰 Precio: ${d.precio}<br>
-        ⏳ Días: ${d.dias}
-      `;
-      productosLista.appendChild(div);
-    });
-  });
-}
-
-/* 🔑 AGREGAR KEYS */
-window.agregarKeys = function(){
-  const texto = keysInput.value.trim();
-  if(!texto){
-    keysMsg.style.color="red";
-    keysMsg.innerText="❌ No hay keys";
+  if(!key){
+    msg.innerText="❌ Ingresa una key";
     return;
   }
 
-  const lineas = texto.split("\n");
-  let count=0;
+  try{
+    const snap = await getDoc(docRef);
+    if(!snap.exists()){
+      msg.innerText="❌ Documento no existe";
+      return;
+    }
 
-  lineas.forEach(l=>{
+    const lista = snap.data().lista || [];
+
+    if(lista.includes(key)){
+      loginBox.classList.add("hidden");
+      panelBox.classList.remove("hidden");
+      msg.innerText="";
+    }else{
+      msg.innerText="❌ Key inválida";
+    }
+
+  }catch(e){
+    msg.innerText="❌ Error Firebase";
+  }
+});
+
+/* 🔓 LOGOUT */
+document.getElementById("btnLogout").addEventListener("click", ()=>{
+  panelBox.classList.add("hidden");
+  loginBox.classList.remove("hidden");
+  document.getElementById("loginKey").value="";
+});
+
+/* 🔑 AGREGAR KEYS AL ARRAY */
+document.getElementById("btnAddKeys").addEventListener("click", async ()=>{
+  const texto = document.getElementById("keysInput").value.trim();
+  const msg = document.getElementById("keysMsg");
+
+  if(!texto){
+    msg.style.color="red";
+    msg.innerText="❌ No hay keys";
+    return;
+  }
+
+  let count = 0;
+
+  for(const l of texto.split("\n")){
     const linea = l.trim();
     if(linea){
-      push(ref(db,"lista"),{
-        value: linea,
-        used:false,
-        created: Date.now()
+      await updateDoc(docRef,{
+        lista: arrayUnion(linea)
       });
       count++;
     }
-  });
+  }
 
-  keysMsg.style.color="#0f0";
-  keysMsg.innerText=`✅ ${count} keys agregadas`;
-  keysInput.value="";
-};
+  msg.style.color="#00ff88";
+  msg.innerText=`✅ ${count} keys agregadas al array`;
+  document.getElementById("keysInput").value="";
+});
 </script>
 </body>
 </html>
