@@ -3,60 +3,58 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🔑 Key Generator</title>
+<title>Key Generator</title>
+
+<!-- 🔥 Firebase v9 COMPAT (OBLIGATORIO) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <style>
 body{
-  background:#0b0614;
-  font-family:Arial, sans-serif;
-  color:white;
+  margin:0;
+  background:#06010d;
+  font-family:Arial,Helvetica,sans-serif;
+  color:#fff;
   display:flex;
   justify-content:center;
   align-items:center;
-  height:100vh;
+  min-height:100vh;
 }
-
 .card{
-  background:#120a22;
-  padding:25px;
-  border-radius:20px;
-  width:100%;
+  width:90%;
   max-width:420px;
-  box-shadow:0 0 25px #7c3aed;
+  background:#0c0718;
+  border-radius:22px;
+  padding:24px;
+  box-shadow:0 0 40px #7f4cff;
 }
-
 h2{
   text-align:center;
-  color:#a855f7;
+  color:#b57cff;
 }
-
-select,textarea,button{
+label{display:block;margin-top:14px;}
+select,textarea{
   width:100%;
-  margin-top:12px;
+  margin-top:6px;
   padding:14px;
   border-radius:14px;
   border:none;
-  background:#1e1235;
-  color:white;
-  font-size:15px;
+  background:#120c22;
+  color:#fff;
 }
-
+textarea{min-height:120px;}
 button{
-  background:linear-gradient(135deg,#7c3aed,#a855f7);
+  width:100%;
+  margin-top:18px;
+  padding:14px;
+  border:none;
+  border-radius:18px;
+  background:linear-gradient(135deg,#8a5cff,#c58bff);
   font-weight:bold;
 }
-
-.error{
-  color:#ff4d4d;
-  text-align:center;
-  margin-top:10px;
-}
-
-.ok{
-  color:#4ade80;
-  text-align:center;
-  margin-top:10px;
-}
+.msg{text-align:center;margin-top:10px;}
+.error{color:#ff5b5b;}
+.ok{color:#5bff9a;}
 </style>
 </head>
 
@@ -65,80 +63,71 @@ button{
 <div class="card">
   <h2>🔑 Key Generator</h2>
 
+  <label>Producto</label>
   <select id="producto">
     <option>Cargando...</option>
   </select>
 
-  <textarea id="keys" rows="5" placeholder="Pega las keys (1 por línea)"></textarea>
+  <label>Keys (1 por línea)</label>
+  <textarea id="keys"></textarea>
 
-  <button onclick="guardarKeys()">⚡ AGREGAR KEYS</button>
-
-  <div id="msg"></div>
+  <button onclick="guardar()">⚡ AGREGAR KEYS</button>
+  <div id="msg" class="msg"></div>
 </div>
 
-<!-- FIREBASE -->
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-
 <script>
-// 🔥 TU CONFIG FIREBASE (CAMBIA SOLO ESTO)
-firebase.initializeApp({
-  apiKey: "TU_API_KEY",
-  authDomain: "TU_DOMINIO.firebaseapp.com",
-  projectId: "TU_PROJECT_ID"
-});
+/* ✅ TU FIREBASE REAL */
+const firebaseConfig = {
+  apiKey: "AIzaSyAKrBTAkJGhB9s3E3MExqzj8mtXgKYsWRc",
+  authDomain: "davidstore-51f7f.firebaseapp.com",
+  projectId: "davidstore-51f7f"
+};
 
+firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
-const select = document.getElementById("producto");
-const msg = document.getElementById("msg");
 
-// 🚀 CARGAR PRODUCTOS
-db.collection("claves").get().then(snapshot=>{
-  select.innerHTML = "<option value=''>Selecciona producto</option>";
+/* 🔄 CARGAR PRODUCTOS */
+const sel = document.getElementById("producto");
+sel.innerHTML = "<option>Cargando...</option>";
 
-  if(snapshot.empty){
-    select.innerHTML += "<option disabled>No hay productos</option>";
+db.collection("claves").get().then(snap=>{
+  sel.innerHTML = "<option value=''>Selecciona producto</option>";
+  if(snap.empty){
+    sel.innerHTML += "<option disabled>No hay productos</option>";
     return;
   }
-
-  snapshot.forEach(doc=>{
-    const opt = document.createElement("option");
-    opt.value = doc.id;
-    opt.textContent = doc.id;
-    select.appendChild(opt);
+  snap.forEach(doc=>{
+    const o=document.createElement("option");
+    o.value=doc.id;
+    o.textContent=doc.id;
+    sel.appendChild(o);
   });
-}).catch(err=>{
-  select.innerHTML = "<option>Error Firebase</option>";
-  console.error(err);
+}).catch(e=>{
+  console.error(e);
+  sel.innerHTML="<option>Error Firebase</option>";
 });
 
-// 💾 GUARDAR KEYS
-function guardarKeys(){
-  msg.innerHTML = "";
+/* ➕ GUARDAR KEYS */
+function guardar(){
+  const prod=sel.value;
+  const texto=document.getElementById("keys").value.trim();
+  const msg=document.getElementById("msg");
 
-  const producto = select.value;
-  const texto = document.getElementById("keys").value.trim();
+  if(!prod){msg.textContent="❌ Selecciona producto";msg.className="msg error";return;}
+  if(!texto){msg.textContent="❌ Pega keys";msg.className="msg error";return;}
 
-  if(!producto){
-    msg.innerHTML = "<div class='error'>❌ Selecciona un producto</div>";
-    return;
-  }
+  const arr=texto.split("\n").map(x=>x.trim()).filter(x=>x);
 
-  if(!texto){
-    msg.innerHTML = "<div class='error'>❌ No hay keys</div>";
-    return;
-  }
-
-  const nuevas = texto.split("\n").map(k=>k.trim()).filter(k=>k);
-
-  db.collection("claves").doc(producto).update({
-    lista: firebase.firestore.FieldValue.arrayUnion(...nuevas)
+  db.collection("claves").doc(prod).update({
+    lista: firebase.firestore.FieldValue.arrayUnion(...arr)
   }).then(()=>{
-    msg.innerHTML = "<div class='ok'>✅ Keys agregadas</div>";
+    msg.textContent="✅ Keys agregadas";
+    msg.className="msg ok";
     document.getElementById("keys").value="";
   }).catch(e=>{
-    msg.innerHTML = "<div class='error'>❌ Error al guardar</div>";
     console.error(e);
+    msg.textContent="❌ Error al guardar";
+    msg.className="msg error";
   });
 }
 </script>
