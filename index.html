@@ -138,7 +138,7 @@ window.addKey = async (id)=>{
   if(!key) return alert("Key vacía");
 
   await updateDoc(doc(db,"claves",id),{
-    keys: arrayUnion(key)
+    keys: arrayUnion(lista)
   });
 
   inp.value="";
