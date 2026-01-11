@@ -2,93 +2,113 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Admin Keys 🔑</title>
+<title>Admin Panel 🎮</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
 body{
   margin:0;
-  background:#0b1020;
+  background:#050814;
   color:#fff;
   font-family:Arial,Helvetica,sans-serif
 }
+.hidden{display:none}
 .container{
-  max-width:600px;
+  max-width:720px;
   margin:auto;
   padding:20px
 }
-h1{
+h1,h2{
   text-align:center;
   color:#00eaff
 }
-textarea{
+input,select,textarea,button{
   width:100%;
-  height:220px;
-  background:#060b18;
-  color:#0ff;
-  border:2px solid #1e90ff;
-  border-radius:12px;
+  margin-top:10px;
   padding:12px;
-  font-size:15px;
+  border-radius:12px;
+  border:none;
+  font-size:15px
+}
+input,select,textarea{
+  background:#0b1025;
+  color:#0ff
+}
+textarea{
+  height:180px;
   resize:none
 }
 button{
-  width:100%;
-  margin-top:14px;
-  padding:14px;
-  background:linear-gradient(135deg,#1e90ff,#00eaff);
-  border:none;
-  border-radius:14px;
-  font-size:17px;
+  background:linear-gradient(135deg,#00eaff,#1e90ff);
   font-weight:bold;
   cursor:pointer;
   color:#000
 }
-button:hover{
-  opacity:.9
-}
-.info{
-  margin-top:10px;
-  font-size:14px;
-  opacity:.8;
-  text-align:center
+.producto{
+  background:#0b1025;
+  padding:12px;
+  border-radius:12px;
+  margin-top:10px
 }
 .log{
-  margin-top:15px;
-  text-align:center;
-  color:#0f0
+  margin-top:10px;
+  text-align:center
+}
+.logout{
+  background:#ff0044;
+  color:#fff;
+  margin-top:20px
 }
 </style>
 </head>
 
 <body>
-<div class="container">
-  <h1>🎮 ADMIN KEYS 🔑</h1>
 
-  <textarea id="keysInput" placeholder="Modo normal:
-KEY-1
-KEY-2
-
-Modo BR:
-👤Brmods
-🔑brmods clave"></textarea>
-
-  <button onclick="agregar()">🚀 AGREGAR KEYS</button>
-
-  <div class="info">
-    ✔ Cada línea es una key<br>
-    ✔ 👤 y 🔑 cuentan como keys separadas
-  </div>
-
-  <div id="log" class="log"></div>
+<!-- 🔐 LOGIN -->
+<div class="container" id="loginBox">
+  <h1>🔐 LOGIN ADMIN</h1>
+  <input id="email" placeholder="Correo">
+  <input id="password" type="password" placeholder="Contraseña">
+  <button onclick="login()">ENTRAR</button>
+  <div id="loginMsg" class="log"></div>
 </div>
 
-<!-- FIREBASE -->
+<!-- 🎮 PANEL -->
+<div class="container hidden" id="panelBox">
+  <h1>🎮 PANEL ADMIN</h1>
+
+  <h2>📦 Productos</h2>
+  <select id="productosSelect"></select>
+  <div id="productosLista"></div>
+
+  <h2>🔑 Agregar Keys</h2>
+  <textarea id="keysInput" placeholder="KEY-1
+KEY-2
+👤Brmods
+🔑brmods clave"></textarea>
+  <button onclick="agregarKeys()">AGREGAR KEYS</button>
+  <div id="keysMsg" class="log"></div>
+
+  <button class="logout" onclick="logout()">CERRAR SESIÓN</button>
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-import { getDatabase, ref, push } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+import { 
+  getAuth,
+  signInWithEmailAndPassword,
+  onAuthStateChanged,
+  signOut
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 
-/* 🔴 TU CONFIG FIREBASE 🔴 */
+import {
+  getDatabase,
+  ref,
+  onValue,
+  push
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+/* 🔴 TU FIREBASE CONFIG 🔴 */
 const firebaseConfig = {
   apiKey: "TU_API_KEY",
   authDomain: "TU_DOMINIO.firebaseapp.com",
@@ -100,36 +120,97 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 const db = getDatabase(app);
 
-window.agregar = function(){
-  const texto = document.getElementById("keysInput").value.trim();
-  const log = document.getElementById("log");
+/* 🔐 LOGIN */
+window.login = function(){
+  const email = email.value;
+  const pass = password.value;
 
+  signInWithEmailAndPassword(auth,email,pass)
+    .catch(err=>{
+      loginMsg.style.color="red";
+      loginMsg.innerText=err.message;
+    });
+};
+
+/* 🔓 LOGOUT */
+window.logout = function(){
+  signOut(auth);
+};
+
+/* 👁️ CONTROL SESIÓN */
+onAuthStateChanged(auth,user=>{
+  if(user){
+    loginBox.classList.add("hidden");
+    panelBox.classList.remove("hidden");
+    cargarProductos();
+  }else{
+    panelBox.classList.add("hidden");
+    loginBox.classList.remove("hidden");
+  }
+});
+
+/* 📦 PRODUCTOS */
+function cargarProductos(){
+  const productosRef = ref(db,"productos"); // 👈 CAMBIA SOLO SI TU NODO ES OTRO
+
+  onValue(productosRef,snap=>{
+    productosSelect.innerHTML="";
+    productosLista.innerHTML="";
+
+    if(!snap.exists()){
+      productosSelect.innerHTML="<option>No hay productos</option>";
+      return;
+    }
+
+    snap.forEach(p=>{
+      const d = p.val();
+
+      const opt = document.createElement("option");
+      opt.textContent = `${d.nombre} - S/ ${d.precio}`;
+      productosSelect.appendChild(opt);
+
+      const div = document.createElement("div");
+      div.className="producto";
+      div.innerHTML=`
+        🎮 <b>${d.nombre}</b><br>
+        💰 Precio: ${d.precio}<br>
+        ⏳ Días: ${d.dias}
+      `;
+      productosLista.appendChild(div);
+    });
+  });
+}
+
+/* 🔑 AGREGAR KEYS */
+window.agregarKeys = function(){
+  const texto = keysInput.value.trim();
   if(!texto){
-    log.style.color="red";
-    log.innerText="❌ No hay keys";
+    keysMsg.style.color="red";
+    keysMsg.innerText="❌ No hay keys";
     return;
   }
 
   const lineas = texto.split("\n");
-  let contador = 0;
+  let count=0;
 
-  lineas.forEach(l => {
+  lineas.forEach(l=>{
     const linea = l.trim();
     if(linea){
       push(ref(db,"lista"),{
         value: linea,
-        used: false,
+        used:false,
         created: Date.now()
       });
-      contador++;
+      count++;
     }
   });
 
-  log.style.color="#0f0";
-  log.innerText=`✅ ${contador} keys agregadas`;
-  document.getElementById("keysInput").value="";
+  keysMsg.style.color="#0f0";
+  keysMsg.innerText=`✅ ${count} keys agregadas`;
+  keysInput.value="";
 };
 </script>
 </body>
