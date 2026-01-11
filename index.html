@@ -2,149 +2,135 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>🎮 Panel Productos</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Keys 🔑</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
-body{margin:0;background:#070b14;color:#fff;font-family:Arial}
-.container{max-width:520px;margin:auto;padding:20px}
-h2{text-align:center;color:#00ffcc}
-input{width:100%;padding:12px;margin-top:8px;border:none;border-radius:10px;background:#121c33;color:#fff}
-button{width:100%;padding:14px;margin-top:10px;border:none;border-radius:12px;background:linear-gradient(135deg,#00ffcc,#0077ff);font-weight:bold}
-.hidden{display:none}
-
-.search{background:#0b1220;padding:12px;border-radius:14px;margin-bottom:14px}
-
-.item{
-  background:#121c33;
-  padding:12px;
-  border-radius:12px;
-  margin-top:10px;
+body{
+  margin:0;
+  background:#0b1020;
+  color:#fff;
+  font-family:Arial,Helvetica,sans-serif
 }
-.actions{display:flex;gap:8px;margin-top:8px}
-.actions button{width:auto;padding:10px}
+.container{
+  max-width:600px;
+  margin:auto;
+  padding:20px
+}
+h1{
+  text-align:center;
+  color:#00eaff
+}
+textarea{
+  width:100%;
+  height:220px;
+  background:#060b18;
+  color:#0ff;
+  border:2px solid #1e90ff;
+  border-radius:12px;
+  padding:12px;
+  font-size:15px;
+  resize:none
+}
+button{
+  width:100%;
+  margin-top:14px;
+  padding:14px;
+  background:linear-gradient(135deg,#1e90ff,#00eaff);
+  border:none;
+  border-radius:14px;
+  font-size:17px;
+  font-weight:bold;
+  cursor:pointer;
+  color:#000
+}
+button:hover{
+  opacity:.9
+}
+.info{
+  margin-top:10px;
+  font-size:14px;
+  opacity:.8;
+  text-align:center
+}
+.log{
+  margin-top:15px;
+  text-align:center;
+  color:#0f0
+}
 </style>
 </head>
 
 <body>
 <div class="container">
+  <h1>🎮 ADMIN KEYS 🔑</h1>
 
-<!-- LOGIN -->
-<div id="loginBox">
-  <h2>🔐 LOGIN ADMIN</h2>
-  <input id="email" placeholder="Correo">
-  <input id="pass" type="password" placeholder="Contraseña">
-  <button onclick="login()">ENTRAR</button>
-</div>
+  <textarea id="keysInput" placeholder="Modo normal:
+KEY-1
+KEY-2
 
-<!-- PANEL -->
-<div id="panelBox" class="hidden">
-  <h2>📦 PRODUCTOS / CLAVES</h2>
+Modo BR:
+👤Brmods
+🔑brmods clave"></textarea>
 
-  <div class="search">
-    <input id="buscar" placeholder="Buscar producto / ID" oninput="buscarProducto()">
+  <button onclick="agregar()">🚀 AGREGAR KEYS</button>
+
+  <div class="info">
+    ✔ Cada línea es una key<br>
+    ✔ 👤 y 🔑 cuentan como keys separadas
   </div>
 
-  <div id="estado">Cargando productos...</div>
-  <div id="lista"></div>
-
-  <button onclick="logout()" style="background:#ff4d4d">CERRAR SESIÓN</button>
+  <div id="log" class="log"></div>
 </div>
 
-</div>
-
+<!-- FIREBASE -->
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
-from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getFirestore, collection, getDocs, doc, updateDoc, arrayUnion }
-from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getDatabase, ref, push } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
+/* 🔴 TU CONFIG FIREBASE 🔴 */
 const firebaseConfig = {
-  apiKey: "AIzaSyAKrBTAkJGhB9s3E3MExqzj8mtXgKYsWRc",
-  authDomain: "davidstore-51f7f.firebaseapp.com",
-  projectId: "davidstore-51f7f"
+  apiKey: "TU_API_KEY",
+  authDomain: "TU_DOMINIO.firebaseapp.com",
+  databaseURL: "https://TU_PROYECTO.firebaseio.com",
+  projectId: "TU_PROYECTO",
+  storageBucket: "TU_PROYECTO.appspot.com",
+  messagingSenderId: "ID",
+  appId: "APP_ID"
 };
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+const db = getDatabase(app);
 
-const loginBox = document.getElementById("loginBox");
-const panelBox = document.getElementById("panelBox");
-const lista = document.getElementById("lista");
-const estado = document.getElementById("estado");
+window.agregar = function(){
+  const texto = document.getElementById("keysInput").value.trim();
+  const log = document.getElementById("log");
 
-/* AUTH */
-onAuthStateChanged(auth,user=>{
-  if(user){
-    loginBox.classList.add("hidden");
-    panelBox.classList.remove("hidden");
-    cargarProductos();
-  }else{
-    loginBox.classList.remove("hidden");
-    panelBox.classList.add("hidden");
+  if(!texto){
+    log.style.color="red";
+    log.innerText="❌ No hay keys";
+    return;
   }
-});
 
-window.login = ()=>{
-  signInWithEmailAndPassword(auth,email.value,pass.value)
-    .catch(e=>alert(e.message));
-};
+  const lineas = texto.split("\n");
+  let contador = 0;
 
-window.logout = ()=>signOut(auth);
-
-/* CARGAR PRODUCTOS */
-async function cargarProductos(){
-  lista.innerHTML="";
-  estado.textContent="Cargando productos...";
-
-  const snap = await getDocs(collection(db,"claves"));
-
-  estado.textContent = `Productos: ${snap.size}`;
-
-  snap.forEach(d=>{
-    const p = d.data();
-    const total = Array.isArray(p.keys) ? p.keys.length : 0;
-
-    lista.innerHTML += `
-      <div class="item">
-        🎮 <b>${p.nombre ?? "SIN NOMBRE"}</b><br>
-        💰 Precio: ${p.precio ?? 0}<br>
-        🔑 Keys: ${total}<br>
-        🆔 ${d.id}
-
-        <div class="actions">
-          <input id="k_${d.id}" placeholder="Nueva key">
-          <button onclick="addKey('${d.id}')">AGREGAR</button>
-        </div>
-      </div>
-    `;
-  });
-}
-
-/* BUSCAR */
-window.buscarProducto = ()=>{
-  const t = buscar.value.toLowerCase();
-  document.querySelectorAll(".item").forEach(i=>{
-    i.style.display = i.innerText.toLowerCase().includes(t) ? "block":"none";
-  });
-};
-
-/* AGREGAR KEY */
-window.addKey = async (id)=>{
-  const inp = document.getElementById("k_"+id);
-  const key = inp.value.trim();
-  if(!key) return alert("Key vacía");
-
-  await updateDoc(doc(db,"claves",id),{
-    keys: arrayUnion(lista)
+  lineas.forEach(l => {
+    const linea = l.trim();
+    if(linea){
+      push(ref(db,"lista"),{
+        value: linea,
+        used: false,
+        created: Date.now()
+      });
+      contador++;
+    }
   });
 
-  inp.value="";
-  cargarProductos();
+  log.style.color="#0f0";
+  log.innerText=`✅ ${contador} keys agregadas`;
+  document.getElementById("keysInput").value="";
 };
 </script>
-
 </body>
 </html>
